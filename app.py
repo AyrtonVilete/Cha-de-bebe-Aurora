@@ -7,7 +7,7 @@ url = st.secrets["SUPABASE_URL"]
 key = st.secrets["SUPABASE_KEY"]
 supabase: Client = create_client(url, key)
 
-st.title("👶 Chá de Bebê da Aurora - Lista de Presença")
+st.title("👶 Chá de Bebê da Aurora - Lista de Presença - 14/03 de 10h as 17h")
 
 # --- FORMULÁRIO DE INSCRIÇÃO ---
 with st.form("form_presenca", clear_on_submit=True):
