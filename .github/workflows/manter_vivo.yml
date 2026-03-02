@@ -1,0 +1,14 @@
+name: Manter Site Vivo
+
+on:
+  schedule:
+    # Roda a cada 30 minutos (Formato Cron)
+    - cron: '*/30 * * * *'
+  workflow_dispatch: # Permite rodar manualmente se quiser
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Acessar URL
+        run: curl -I https://cha-de-bebe-aurora.streamlit.app/
