@@ -1,91 +1,109 @@
 import streamlit as st
 from supabase import create_client, Client
 from fpdf import FPDF
+import os
 
-# Configurações do Supabase
+# 1. Configurações de Segurança e Conexão
+# Certifique-se de que estas chaves estão no seu Secrets do Streamlit
 url = st.secrets["SUPABASE_URL"]
 key = st.secrets["SUPABASE_KEY"]
 supabase: Client = create_client(url, key)
 
+# Configuração da página
+st.set_page_config(page_title="Chá de Bebê", page_icon="👶")
+
 st.title("👶 Chá de Bebê - Lista de Presença")
 st.write("📅 **Dia 14/03 das 10h até 17h**")
 
-# --- FORMULÁRIO DE INSCRIÇÃO ---
+# --- 2. BOTÃO PARA LISTA DE FRALDAS ---
+# Definimos o nome fixo do arquivo para evitar erros de digitação
+NOME_ARQUIVO_PDF = "lista_fraldas.pdf"
+
+if os.path.exists(NOME_ARQUIVO_PDF):
+    with open(NOME_ARQUIVO_PDF, "rb") as file:
+        st.download_button(
+            label="🍼 Baixar Lista de Sugestões (Fraldas)",
+            data=file,
+            file_name="Lista_de_Fraldas_Cha_de_Bebe.pdf",
+            mime="application/pdf",
+            type="primary" # Deixa o botão em destaque
+        )
+else:
+    st.error(f"⚠️ O arquivo '{NOME_ARQUIVO_PDF}' não foi encontrado na pasta do projeto.")
+
+st.divider()
+
+# --- 3. FORMULÁRIO DE INSCRIÇÃO ---
 with st.form("form_presenca", clear_on_submit=True):
+    st.subheader("Confirme sua presença aqui:")
     nome = st.text_input("Seu nome completo:")
     status = st.radio("Você poderá vir?", ["Confirmar Presença", "Não poderei ir"])
-    submit = st.form_submit_button("Enviar")
+    submit = st.form_submit_button("Enviar Resposta")
 
     if submit:
         if nome:
             status_db = "Presente" if status == "Confirmar Presença" else "Não vai dar"
-            # Incluímos o ativo=1 por padrão na inserção
             data = {"nome": nome, "status": status_db, "ativo": 1}
-            supabase.table("convidados").insert(data).execute()
-            st.success(f"Obrigado, {nome}! Resposta enviada.")
-            st.rerun() # Atualiza a lista automaticamente
+            try:
+                supabase.table("convidados").insert(data).execute()
+                st.success(f"Confirmado! Obrigado, {nome}.")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Erro ao salvar no banco: {e}")
         else:
-            st.error("Por favor, preencha seu nome.")
+            st.error("Por favor, digite seu nome antes de enviar.")
 
 st.divider()
+
+# --- 4. LISTAGEM E EXCLUSÃO LÓGICA (SOFT DELETE) ---
+st.subheader("Lista de Confirmados")
 
 try:
-    with open("lista_fraldas.pdf", "rb") as file:
-        st.download_button(
-            label="🍼 Baixar Lista de Fraldas",
-            data=file,
-            file_name="Lista-de-Fraldas.pdf",
-            mime="application/pdf",
-            help="Clique para ver os tamanhos e marcas sugeridas!"
-        )
-except FileNotFoundError:
-    st.error("Arquivo 'Lista-de-Fraldas.pdf' não encontrado. Verifique se o nome está correto na pasta.")
+    # Busca apenas quem está ativo
+    response = supabase.table("convidados").select("*").eq("ativo", 1).order("created_at").execute()
+    dados = response.data
 
-st.divider()
-
-# --- LISTAGEM COM OPÇÃO DE EXCLUIR ---
-st.subheader("Lista de Convidados")
-
-# Filtramos apenas os registros ativos
-response = supabase.table("convidados").select("*").eq("ativo", 1).order("created_at").execute()
-dados = response.data
-
-if dados:
-    for item in dados:
-        # Criamos duas colunas: uma larga para o nome e uma estreita para o botão
-        col_nome, col_btn = st.columns([0.85, 0.15])
-        
-        with col_nome:
-            cor = "✅" if item['status'] == "Presente" else "❌"
-            st.write(f"{cor} **{item['nome']}** - {item['status']}")
-        
-        with col_btn:
-            # Usamos o ID do registro no key para o Streamlit não se perder
-            if st.button("🗑️", key=f"del_{item['id']}"):
-                # Em vez de delete(), usamos update()
-                supabase.table("convidados").update({"ativo": 0}).eq("id", item['id']).execute()
-                st.toast(f"Registro de {item['nome']} removido!")
-                st.rerun()
-
-    # Botão de PDF (apenas para os presentes e ativos)
-    st.write("---")
-    if st.button("Gerar PDF de Confirmados"):
-        confirmados = [d['nome'] for d in dados if d['status'] == "Presente"]
-        
-        if confirmados:
-            pdf = FPDF()
-            pdf.add_page()
-            pdf.set_font("Arial", "B", 16)
-            pdf.cell(200, 10, txt="Lista de Confirmados - Chá de Bebê", ln=True, align='C')
-            pdf.ln(10)
-            pdf.set_font("Arial", size=12)
+    if dados:
+        for item in dados:
+            col_nome, col_btn = st.columns([0.85, 0.15])
             
-            for i, nome_convidado in enumerate(confirmados, 1):
-                pdf.cell(200, 10, txt=f"{i}. {nome_convidado}", ln=True)
+            with col_nome:
+                emoji = "✅" if item['status'] == "Presente" else "❌"
+                st.write(f"{emoji} **{item['nome']}**")
             
-            pdf_output = pdf.output(dest='S').encode('latin-1')
-            st.download_button(label="📥 Baixar PDF", data=pdf_output, file_name="convidados.pdf", mime="application/pdf")
-        else:
-            st.warning("Não há convidados confirmados para exportar.")
-else:
-    st.info("Ainda não há respostas ativas.")
+            with col_btn:
+                if st.button("🗑️", key=f"del_{item['id']}"):
+                    supabase.table("convidados").update({"ativo": 0}).eq("id", item['id']).execute()
+                    st.toast(f"Removido: {item['nome']}")
+                    st.rerun()
+
+        # --- 5. EXPORTAR PDF DA LISTA ---
+        st.write("---")
+        if st.button("📊 Gerar PDF da Lista Final"):
+            confirmados = [d['nome'] for d in dados if d['status'] == "Presente"]
+            
+            if confirmados:
+                pdf = FPDF()
+                pdf.add_page()
+                pdf.set_font("Arial", "B", 16)
+                pdf.cell(200, 10, txt="Lista de Confirmados - Chá de Bebê", ln=True, align='C')
+                pdf.ln(10)
+                pdf.set_font("Arial", size=12)
+                
+                for i, nome_convidado in enumerate(confirmados, 1):
+                    pdf.cell(200, 10, txt=f"{i}. {nome_convidado}", ln=True)
+                
+                pdf_output = pdf.output(dest='S').encode('latin-1')
+                st.download_button(
+                    label="📥 Clique aqui para baixar o PDF da lista",
+                    data=pdf_output,
+                    file_name="lista_final_presenca.pdf",
+                    mime="application/pdf"
+                )
+            else:
+                st.warning("Ainda não há ninguém confirmado como 'Presente'.")
+    else:
+        st.info("A lista ainda está vazia.")
+
+except Exception as e:
+    st.error(f"Erro ao carregar lista: {e}")
