@@ -17,14 +17,14 @@ st.write("📅 **Dia 14/03 das 10h até 17h**")
 
 # --- 2. BOTÃO PARA LISTA DE FRALDAS ---
 # Definimos o nome fixo do arquivo para evitar erros de digitação
-NOME_ARQUIVO_PDF = "lista_fraldas.pdf"
+NOME_ARQUIVO_PDF = "Lista-de-Fraldas.pdf"
 
 if os.path.exists(NOME_ARQUIVO_PDF):
     with open(NOME_ARQUIVO_PDF, "rb") as file:
         st.download_button(
             label="🍼 Baixar Lista de Sugestões (Fraldas)",
             data=file,
-            file_name="Lista_de_Fraldas_Cha_de_Bebe.pdf",
+            file_name="Lista-de-Fraldas.pdf",
             mime="application/pdf",
             type="primary" # Deixa o botão em destaque
         )
