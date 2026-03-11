@@ -7,7 +7,8 @@ url = st.secrets["SUPABASE_URL"]
 key = st.secrets["SUPABASE_KEY"]
 supabase: Client = create_client(url, key)
 
-st.title("👶 Chá de Bebê - Lista de Presença - Dia 14/03 das 10h até 17h")
+st.title("👶 Chá de Bebê - Lista de Presença")
+st.write("📅 **Dia 14/03 das 10h até 17h**")
 
 # --- FORMULÁRIO DE INSCRIÇÃO ---
 with st.form("form_presenca", clear_on_submit=True):
@@ -25,6 +26,20 @@ with st.form("form_presenca", clear_on_submit=True):
             st.rerun() # Atualiza a lista automaticamente
         else:
             st.error("Por favor, preencha seu nome.")
+
+st.divider()
+
+try:
+    with open("lista_fraldas.pdf", "rb") as file:
+        st.download_button(
+            label="🍼 Baixar Lista de Fraldas",
+            data=file,
+            file_name="Lista-de-Fraldas.pdf",
+            mime="application/pdf",
+            help="Clique para ver os tamanhos e marcas sugeridas!"
+        )
+except FileNotFoundError:
+    st.error("Arquivo 'Lista-de-Fraldas.pdf' não encontrado. Verifique se o nome está correto na pasta.")
 
 st.divider()
 
